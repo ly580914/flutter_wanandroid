@@ -13,7 +13,8 @@ class RootPage extends StatefulWidget {
   _RootPageState createState() => _RootPageState();
 }
 
-class _RootPageState extends State<RootPage> {
+class _RootPageState extends State<RootPage>
+    with SingleTickerProviderStateMixin {
   var _currentIndex = 0;
   final _bottomTabs = {
     "home": "首页",
@@ -23,7 +24,15 @@ class _RootPageState extends State<RootPage> {
     "project": "项目",
   };
   final tabs = <BottomNavigationBarItem>[];
-  final pages = <Widget>[HomePage(), SquarePage(), WechatPublicPage(), SystemPage(), ProjectPage()];
+  final pages = <Widget>[
+    HomePage(),
+    SquarePage(),
+    WechatPublicPage(),
+    SystemPage(),
+    ProjectPage()
+  ];
+
+  // late TabController _tabController;
 
   @override
   void initState() {
@@ -32,35 +41,43 @@ class _RootPageState extends State<RootPage> {
     _bottomTabs.forEach((key, value) {
       tabs.add(_BottomNavigationBarItem(key, value));
     });
+    // _tabController = TabController(length: pages.length, vsync: this, );
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+    // _tabController.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       bottomNavigationBar: _bottomNavigationBar(),
-      body: pages[_currentIndex],
+      body: IndexedStack(
+        children: pages,
+        index: _currentIndex,
+      )
     );
-  }
-
-  Drawer _myDrawer() {
-    return Drawer();
   }
 
   BottomNavigationBar _bottomNavigationBar() {
     return BottomNavigationBar(
       items: tabs,
       currentIndex: _currentIndex,
-      onTap: (v) => setState(() {
-        _currentIndex = v;
-      }),
+      onTap: (v) =>
+          setState(() {
+            _currentIndex = v;
+            // _tabController.animateTo(_currentIndex);
+          }),
       type: BottomNavigationBarType.fixed,
       unselectedFontSize: 12,
       selectedFontSize: 12,
     );
   }
 
-  BottomNavigationBarItem _BottomNavigationBarItem(
-      String assetName, String label) {
+  BottomNavigationBarItem _BottomNavigationBarItem(String assetName,
+      String label) {
     return BottomNavigationBarItem(
         icon: Image.asset(
           'images/icons/icon_$assetName.png',
@@ -74,4 +91,5 @@ class _RootPageState extends State<RootPage> {
         ),
         label: label);
   }
+
 }
