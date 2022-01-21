@@ -38,6 +38,13 @@ dependencies:
   dio: ^4.0.4
   fluttertoast: ^8.0.8
   card_swiper : ^1.0.4
+  flutter_easyrefresh: ^2.2.1
+  shared_preferences: ^2.0.11
+  event_bus: ^2.0.0
+  webview_flutter: ^3.0.0
+  fluro: ^2.0.3
+  share_plus: ^3.0.4
+  url_launcher: ^6.0.18
 
 dev_dependencies:
   flutter_test:

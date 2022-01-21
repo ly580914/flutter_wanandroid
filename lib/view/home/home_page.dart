@@ -1,16 +1,28 @@
+import 'dart:async';
+
 import 'package:card_swiper/card_swiper.dart';
+import 'package:event_bus/event_bus.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:wanandroid/common.dart';
-import 'package:wanandroid/config/colors.dart';
+import 'package:wanandroid/account/account_info.dart';
 import 'package:wanandroid/custom/custom.dart';
+import 'package:wanandroid/data/repository.dart';
+import 'package:wanandroid/main.dart';
+import 'package:wanandroid/models/event_bus_model.dart';
+import 'package:wanandroid/toast.dart';
+import 'package:wanandroid/config/colors.dart';
 import 'package:wanandroid/data/api.dart';
 import 'package:wanandroid/data/service.dart';
 import 'package:wanandroid/models/article_model.dart';
 import 'package:wanandroid/models/banner_model.dart';
 import 'package:wanandroid/page_status.dart';
 import 'package:wanandroid/utils/text_utils.dart';
-import 'package:wanandroid/view/common/drawer_holder.dart';
+import 'package:wanandroid/utils/widget_utils.dart';
+import 'package:wanandroid/view/common/article_item.dart';
+import 'package:wanandroid/view/drawer/drawer_holder.dart';
+import 'package:flutter_easyrefresh/easy_refresh.dart';
+
+import '../event_bus.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -20,16 +32,51 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  int bannerStatus = PageStatus.statusLoading;
+  late EasyRefreshController _easyRefreshController = EasyRefreshController();
+  late ScrollController _scrollController = ScrollController();
+  int pageStatus = PageStatus.statusLoading;
   int netCount = 0;
   late BannerList _bannerList;
   List<ArticleItem> articleList = <ArticleItem>[];
   int page = 0;
+  bool showFloatingActionButton = false;
+  late StreamSubscription event;
+  bool _isRefreshing = false;
 
   @override
   void initState() {
     super.initState();
-    _getData();
+    double lastOffset = 0.0;
+    _scrollController.addListener(() {
+      if (_scrollController.offset >= 10 &&
+          !showFloatingActionButton &&
+          _scrollController.offset < lastOffset) {
+        setState(() {
+          showFloatingActionButton = true;
+        });
+      } else if ((_scrollController.offset < 10 ||
+              _scrollController.offset > lastOffset) &&
+          showFloatingActionButton) {
+        setState(() {
+          showFloatingActionButton = false;
+        });
+      }
+      lastOffset = _scrollController.offset;
+    });
+    _initData();
+
+    event = EventBusHolder.get.on<LoginState>().listen((event) {
+      print("EventBus on ${event.isLogin}");
+      setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+    _easyRefreshController.dispose();
+    _scrollController.dispose();
+    event.cancel();
   }
 
   @override
@@ -37,25 +84,30 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       appBar: AppBar(
         title: Text('玩Android'),
-        actions: [IconButton(onPressed: () {}, icon: Icon(Icons.search))],
+        actions: [
+          IconButton(
+              onPressed: () => Navigator.pushNamed(context, 'search'),
+              icon: Icon(Icons.search))
+        ],
       ),
       drawer: DrawerHolder.drawer,
-      body: bannerStatus == PageStatus.statusLoading
-          ? Center(
-              child: SizedBox(
-                height: 22,
-                width: 22,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
-                ),
+      body: WidgetUtils.getPageStateWidget(context, pageStatus, _listView),
+      floatingActionButton: showFloatingActionButton
+          ? FloatingActionButton(
+              backgroundColor: AppColors.primary,
+              onPressed: () {
+                _scrollController.animateTo(0,
+                    duration: Duration(
+                      milliseconds: (_scrollController.offset / 8.0).toInt(),
+                    ),
+                    curve: Curves.linear);
+              },
+              child: Icon(
+                Icons.arrow_upward,
+                color: Colors.white,
               ),
             )
-          : bannerStatus == PageStatus.statusLoadError
-              ? Center(
-                  child: Text('加载失败'),
-                )
-              : _listView(context),
+          : null,
     );
   }
 
@@ -115,168 +167,69 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _listView(BuildContext context) {
-    return MediaQuery.removePadding(
-      context: context,
-      removeTop: true,
-      child: ScrollConfiguration(
-        behavior: CusBehavior(),
-        child: ListView.separated(
-          itemCount: articleList.length + 1,
-          itemBuilder: (BuildContext context, int index) {
-            if (index == 0) {
-              return _banner();
-            }
-            return _articleItem(index - 1);
-          },
-          separatorBuilder: (BuildContext context, int index) {
-            return Divider(
-              color: index == 0 ? Colors.transparent : AppColors.unactive2,
-            );
-          },
-        ),
+    return EasyRefresh(
+      controller: _easyRefreshController,
+      header: ClassicalHeader(
+        refreshText: "下拉刷新",
+        refreshReadyText: "释放刷新",
+        refreshFailedText: "刷新失败",
+        refreshedText: "刷新成功",
+        refreshingText: "正在刷新...",
+        // infoText: "更新于"
+        showInfo: false,
+      ),
+      footer: ClassicalFooter(
+        loadText: "上拉加载",
+        loadFailedText: "加载失败",
+        loadReadyText: "释放加载",
+        loadingText: "加载中...",
+        loadedText: "加载成功",
+        showInfo: false,
+      ),
+      onLoad: _onLoad,
+      onRefresh: _onRefresh,
+      child: ListView.separated(
+        itemCount: articleList.length + 1,
+        shrinkWrap: true,
+        controller: _scrollController,
+        itemBuilder: (BuildContext context, int index) {
+          if (index == 0) {
+            return _banner();
+          }
+          return articleItem(context, articleList[index - 1],);
+        },
+        separatorBuilder: (BuildContext context, int index) {
+          return Divider(
+            color: index == 0 ? Colors.transparent : AppColors.unactive2,
+          );
+        },
       ),
     );
   }
 
-  Widget _articleItem(int index) {
-    ArticleItem item = articleList[index];
-    return Padding(
-      padding: EdgeInsets.only(left: 10, right: 10),
-      child: Column(
-        children: [
-          Row(
-            children: _topItems(item),
-          ),
-          SizedBox(
-            height: 4,
-          ),
-          Align(
-            child: Text(
-              item.title,
-              style: TextStyle(fontSize: 16, color: AppColors.active),
-            ),
-            alignment: Alignment.centerLeft,
-          ),
-          _bottomItem(item),
-        ],
-      ),
-    );
-  }
-
-  List<Widget> _topItems(ArticleItem item) {
-    // todo OffStage可以控制显示或隐藏
-    bool havePadding = false;
-    List<Widget> list = <Widget>[];
-    if (item.top) {
-      havePadding = true;
-      list.add(Container(
-        height: 16,
-        width: 24,
-        child: Center(
-            child: Text('置顶',
-                style: TextStyle(color: AppColors.blue, fontSize: 8))),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(2.0),
-          border: new Border.all(width: 1, color: AppColors.blue),
-        ),
-      ));
-    }
-
-    if (DateTime.now().millisecondsSinceEpoch - item.publishTime < 86400000) {
-      // print("diff.inDays < 1 : ${item.title} ----------> now = ${DateTime.now().millisecondsSinceEpoch}, publishTime = ${item.publishTime}");
-      list.add(Container(
-        height: 16,
-        width: 16,
-        margin: EdgeInsets.only(left: havePadding ? 8 : 0),
-        child: Center(
-          child: Text(
-            '新',
-            style: TextStyle(color: AppColors.tip, fontSize: 8),
-          ),
-        ),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(2.0),
-          border: new Border.all(width: 1, color: AppColors.tip),
-        ),
-      ));
-      havePadding = true;
-    }
-
-    late String name;
-    if (!TextUtils.isEmpty(item.author)) {
-      name = item.author as String;
-    } else if (!TextUtils.isEmpty(item.shareUser)) {
-      name = item.shareUser as String;
-    }
-    list.add(Padding(
-        padding: EdgeInsets.only(left: havePadding ? 8 : 0),
-        child: Text(
-          name,
-          style: TextStyle(fontSize: 12, color: AppColors.unactive),
-        )));
-    if (!TextUtils.isEmpty(item.niceDate)) {
-      list.add(Expanded(
-          child: Align(
-        child: Text(
-          item.niceDate as String,
-          style: TextStyle(fontSize: 12, color: AppColors.unactive),
-        ),
-        alignment: Alignment.centerRight,
-      )));
-    }
-    return list;
-  }
-
-  Widget _bottomItem(ArticleItem item) {
-    return Container(
-      height: 34,
-      child: Stack(
-        children: [
-          Positioned(
-              left: 0,
-              bottom: 0,
-              child: Text(
-                "${item.superChapterName} / ${item.chapterName}",
-                style: TextStyle(color: AppColors.unactive, fontSize: 12),
-              )),
-          Positioned(
-            bottom: 0,
-            right: 0,
-            child: Image.asset(
-              'images/icons/icon_zan.png',
-              width: 24,
-              height: 24,
-              color: AppColors.unactive2,
-            ),
-          )
-        ],
-      ),
-    );
-  }
-
-  void _getData() {
+  void _initData() {
     // 加载轮播图
     MyService().dio.get(API.banner).then((value) {
       if (value.data['errorCode'] != 0) {
-        toast("获取轮播图失败 ${value.data['errorMsg']}");
+        MyToast.show(context, "获取轮播图失败 ${value.data['errorMsg']}");
         setState(() {
-          bannerStatus = PageStatus.statusLoadError;
+          pageStatus = PageStatus.statusLoadError;
         });
         return;
       }
       _bannerList = BannerList.fromJson(value.data['data']);
-      if (++netCount == 2) {
+      if (++netCount > 2) {
         setState(() {
-          bannerStatus = PageStatus.statusLoaded;
+          pageStatus = PageStatus.statusLoaded;
         });
       }
     });
     // 加载置顶文章
     MyService().dio.get(API.topArticleList).then((value) {
       if (value.data['errorCode'] != 0) {
-        toast("获取文章失败 ${value.data['errorMsg']}");
+        MyToast.show(context, "获取文章失败 ${value.data['errorMsg']}");
         setState(() {
-          bannerStatus = PageStatus.statusLoadError;
+          pageStatus = PageStatus.statusLoadError;
         });
         return;
       }
@@ -285,28 +238,55 @@ class _HomePageState extends State<HomePage> {
         element.setTop = true;
       });
       articleList.insertAll(0, list.list);
-      if (++netCount == 2) {
+      if (++netCount > 2) {
         setState(() {
-          bannerStatus = PageStatus.statusLoaded;
+          pageStatus = PageStatus.statusLoaded;
         });
       }
     });
     // 加载文章
+    _getArticles();
+  }
+
+  bool _getArticles() {
     MyService().dio.get("/article/list/${page++}/json").then((value) {
       if (value.data['errorCode'] != 0) {
-        toast("获取文章失败 ${value.data['errorMsg']}");
-        setState(() {
-          bannerStatus = PageStatus.statusLoadError;
-        });
-        return;
+        MyToast.show(context, "获取文章失败 ${value.data['errorMsg']}");
+        if (pageStatus == PageStatus.statusLoading) {
+          setState(() {
+            pageStatus = PageStatus.statusLoadError;
+          });
+        }
+        return false;
+      }
+      if (_isRefreshing) {
+        _isRefreshing = false;
+        articleList.clear();
       }
       ArticleList list = ArticleList.fromJson(value.data['data']['datas']);
       articleList.addAll(list.list);
-      if (++netCount == 3) {
+      if (++netCount > 2) {
         setState(() {
-          bannerStatus = PageStatus.statusLoaded;
+          pageStatus = PageStatus.statusLoaded;
         });
       }
     });
+    return true;
+  }
+
+  Future _onLoad() async {
+    if (_getArticles()) {
+      _easyRefreshController.finishLoad(noMore: false, success: true);
+    } else {
+      _easyRefreshController.finishLoad(noMore: false, success: false);
+    }
+  }
+
+  Future _onRefresh() async {
+    netCount = 0;
+    page = 0;
+    _isRefreshing = true;
+    _initData();
+    _easyRefreshController.finishRefresh(success: true);
   }
 }

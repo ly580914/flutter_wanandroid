@@ -1,5 +1,10 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:wanandroid/config/colors.dart';
+import 'package:wanandroid/data/repository.dart';
+import 'package:wanandroid/initializer.dart';
+import 'package:wanandroid/main.dart';
+import 'package:wanandroid/view/common/common_article_page.dart';
 import 'package:wanandroid/view/home/home_page.dart';
 import 'package:wanandroid/view/project/project_page.dart';
 import 'package:wanandroid/view/square/square_page.dart';
@@ -26,7 +31,14 @@ class _RootPageState extends State<RootPage>
   final tabs = <BottomNavigationBarItem>[];
   final pages = <Widget>[
     HomePage(),
-    SquarePage(),
+    ArticlePage(
+      apiFunction: Repository().getSquareArticles,
+      title: '广场',
+      hasDrawer: true,
+      actions: [
+        IconButton(onPressed: (){Navigator.pushNamed(globalKey.currentContext!, 'share');}, icon: Icon(Icons.add))
+      ],
+    ), // SquarePage(),
     WechatPublicPage(),
     SystemPage(),
     ProjectPage()
@@ -38,6 +50,7 @@ class _RootPageState extends State<RootPage>
   void initState() {
     // TODO: implement initState
     super.initState();
+    Initializer.init();
     _bottomTabs.forEach((key, value) {
       tabs.add(_BottomNavigationBarItem(key, value));
     });
@@ -53,43 +66,42 @@ class _RootPageState extends State<RootPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      bottomNavigationBar: _bottomNavigationBar(),
-      body: IndexedStack(
-        children: pages,
-        index: _currentIndex,
-      )
-    );
+        bottomNavigationBar: _bottomNavigationBar(),
+        body: IndexedStack(
+          children: pages,
+          index: _currentIndex,
+        ));
   }
 
   BottomNavigationBar _bottomNavigationBar() {
     return BottomNavigationBar(
       items: tabs,
       currentIndex: _currentIndex,
-      onTap: (v) =>
-          setState(() {
-            _currentIndex = v;
-            // _tabController.animateTo(_currentIndex);
-          }),
+      onTap: (v) => setState(() {
+        _currentIndex = v;
+        // _tabController.animateTo(_currentIndex);
+      }),
       type: BottomNavigationBarType.fixed,
       unselectedFontSize: 12,
       selectedFontSize: 12,
+      selectedItemColor: AppColors.active,
     );
   }
 
-  BottomNavigationBarItem _BottomNavigationBarItem(String assetName,
-      String label) {
+  BottomNavigationBarItem _BottomNavigationBarItem(
+      String assetName, String label) {
     return BottomNavigationBarItem(
-        icon: Image.asset(
-          'images/icons/icon_$assetName.png',
-          width: 24,
-          height: 24,
-        ),
-        activeIcon: Image.asset(
-          'images/icons/icon_${assetName}_active.png',
-          width: 24,
-          height: 24,
-        ),
-        label: label);
+      icon: Image.asset(
+        'images/icons/icon_$assetName.png',
+        width: 24,
+        height: 24,
+      ),
+      activeIcon: Image.asset(
+        'images/icons/icon_${assetName}_active.png',
+        width: 24,
+        height: 24,
+      ),
+      label: label,
+    );
   }
-
 }

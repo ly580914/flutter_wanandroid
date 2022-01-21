@@ -36,3 +36,4 @@ class AppTheme {
 
   static get themeData => _themeData;
 }
+

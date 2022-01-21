@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:wanandroid/account/account_info.dart';
 
 class MyService {
   static final MyService _instance = MyService._internal();
@@ -8,6 +9,7 @@ class MyService {
     return _instance;
   }
   MyService._internal() {
+    // BaseOptions options = BaseOptions();
     dio.options = BaseOptions(
       baseUrl: "https://www.wanandroid.com",
       connectTimeout: 10 * 1000,
@@ -18,12 +20,15 @@ class MyService {
       // }
       contentType: Headers.jsonContentType,
     );
+
     dio.interceptors.add(InterceptorsWrapper(onRequest: (options, handelr) {
       print("dio onRequest : " + options.uri.toString());
+      if (Account.get != null) {
+        options.headers['Cookie'] = 'loginUserName=${Account.get.username}, loginUserPassword=${Account.get.password}';
+      }
       return handelr.next(options);
     },onResponse: (e, handler) {
-      // print("dio onResponse : " + e.toString());
-      // print('---------> ' + e.data.toString());
+      // print('dio onResponse' + e.data.toString());
       return handler.next(e);
     },onError: (e, handler) {
       // if (e.type == DioErrorType.)

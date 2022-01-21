@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:fluro/fluro.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:wanandroid/config/colors.dart';
@@ -23,6 +24,9 @@ class MyApp extends StatefulWidget {
   _MyAppState createState() => _MyAppState();
 }
 
+final GlobalKey<NavigatorState> globalKey = GlobalKey<NavigatorState>();
+// final GlobalKey appKey = GlobalKey();
+
 class _MyAppState extends State<MyApp> {
   @override
   void initState() {
@@ -35,16 +39,25 @@ class _MyAppState extends State<MyApp> {
     return MaterialApp(
       title: "liyu flutter",
       debugShowCheckedModeBanner: false,
+      navigatorKey: globalKey,
+      onGenerateRoute: onGenerateRoute,
       // theme: ThemeData(
       //   // colorScheme: ColorScheme(onPrimary: Color(0xFF3D383B), background: null,
       //   primaryColor: Color(0xFF3D383B),
       //   // primarySwatch: Colors.green,
       //   ),
       theme:AppTheme.themeData,
-        //
-
+      darkTheme:
       routes: routes,
+
     );
 
+
+
   }
+
+
+
+
 }
+
