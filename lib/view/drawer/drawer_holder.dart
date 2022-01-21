@@ -1,8 +1,6 @@
 import 'dart:async';
 
-import 'package:event_bus/event_bus.dart';
 import 'package:flutter/material.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:wanandroid/account/account_info.dart';
 import 'package:wanandroid/config/colors.dart';
 import 'package:wanandroid/data/repository.dart';
@@ -151,6 +149,7 @@ class _MyDrawerState extends State<MyDrawer> {
       _settingItem("share", "我的分享", () {
         if (Account.get == null) {
           Navigator.pushNamed(context, 'login');
+          return;
         }
         Navigator.pushNamed(context, 'share_list');
       }),

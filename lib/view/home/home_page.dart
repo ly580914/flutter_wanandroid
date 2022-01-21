@@ -1,13 +1,8 @@
 import 'dart:async';
 
 import 'package:card_swiper/card_swiper.dart';
-import 'package:event_bus/event_bus.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:wanandroid/account/account_info.dart';
-import 'package:wanandroid/custom/custom.dart';
-import 'package:wanandroid/data/repository.dart';
-import 'package:wanandroid/main.dart';
 import 'package:wanandroid/models/event_bus_model.dart';
 import 'package:wanandroid/toast.dart';
 import 'package:wanandroid/config/colors.dart';
@@ -16,7 +11,6 @@ import 'package:wanandroid/data/service.dart';
 import 'package:wanandroid/models/article_model.dart';
 import 'package:wanandroid/models/banner_model.dart';
 import 'package:wanandroid/page_status.dart';
-import 'package:wanandroid/utils/text_utils.dart';
 import 'package:wanandroid/utils/widget_utils.dart';
 import 'package:wanandroid/view/common/article_item.dart';
 import 'package:wanandroid/view/drawer/drawer_holder.dart';
@@ -117,10 +111,16 @@ class _HomePageState extends State<HomePage> {
       color: Colors.grey,
       child: Swiper(
         itemBuilder: (BuildContext context, int index) {
-          return Image.network(
+          return InkWell(
+            onTap: () {
+              BannerItem item = _bannerList.list[index];
+              Map<String, dynamic> args = {'url': item.url, 'title': item.title, 'id': item.id};
+              Navigator.pushNamed(context, 'webview', arguments: args);
+            },
+            child: Image.network(
             _bannerList.list[index].imagePath,
             fit: BoxFit.fill,
-          );
+          ),);
         },
         itemCount: _bannerList.list.length,
         autoplay: true,

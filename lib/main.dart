@@ -47,7 +47,6 @@ class _MyAppState extends State<MyApp> {
       //   // primarySwatch: Colors.green,
       //   ),
       theme:AppTheme.themeData,
-      darkTheme:
       routes: routes,
 
     );
